@@ -1,0 +1,228 @@
+/**
+ * NUEDC modular FreeRTOS car - final board pin assignment.
+ * Device: MSPM0G3507, LQFP-64(PM).
+ */
+
+//@cliArgs --device "MSPM0G350X" --package "LQFP-64(PM)" --part "Default"
+//@v2CliArgs --device "MSPM0G3507" --package "LQFP-64(PM)"
+
+const Board         = scripting.addModule("/ti/driverlib/Board", {}, false);
+const SYSCTL        = scripting.addModule("/ti/driverlib/SYSCTL");
+const ProjectConfig = scripting.addModule("/ti/project_config/ProjectConfig");
+const GPIO          = scripting.addModule("/ti/driverlib/GPIO", {}, false);
+const UART          = scripting.addModule("/ti/driverlib/UART", {}, false);
+const PWM           = scripting.addModule("/ti/driverlib/PWM", {}, false);
+const I2C           = scripting.addModule("/ti/driverlib/I2C", {}, false);
+const SPI           = scripting.addModule("/ti/driverlib/SPI", {}, false);
+const QEI           = scripting.addModule("/ti/driverlib/QEI", {}, false);
+const CAPTURE       = scripting.addModule("/ti/driverlib/CAPTURE", {}, false);
+const WWDT          = scripting.addModule("/ti/driverlib/WWDT", {}, false);
+
+const GPIO_LED          = GPIO.addInstance();
+const GPIO_BUTTON_A     = GPIO.addInstance();
+const GPIO_BUTTON_B     = GPIO.addInstance();
+const GPIO_MOTOR_A      = GPIO.addInstance();
+const GPIO_MOTOR_B      = GPIO.addInstance();
+const GPIO_BUZZER       = GPIO.addInstance();
+const GPIO_IMU_CS       = GPIO.addInstance();
+const GPIO_IMU_INT      = GPIO.addInstance();
+const GPIO_LINE_A       = GPIO.addInstance();
+const GPIO_LINE_B       = GPIO.addInstance();
+const UART_DEBUG        = UART.addInstance();
+const PWM_MOTOR         = PWM.addInstance();
+const I2C_OLED          = I2C.addInstance();
+const SPI_ICM45688      = SPI.addInstance();
+const QEI_LEFT          = QEI.addInstance();
+const CAPTURE_RIGHT     = CAPTURE.addInstance();
+const WWDT0_INST        = WWDT.addInstance();
+
+ProjectConfig.deviceSpin = "MSPM0G3507";
+
+SYSCTL.forceDefaultClkConfig = true;
+SYSCTL.clockTreeEn = true;
+SYSCTL.validateClkStatus = true;
+
+/* Board LED: PB22. */
+GPIO_LED.$name = "GPIO_LED";
+GPIO_LED.associatedPins[0].$name = "LED";
+GPIO_LED.associatedPins[0].direction = "OUTPUT";
+GPIO_LED.associatedPins[0].initialValue = "CLEARED";
+GPIO_LED.associatedPins[0].pin.$assign = "PB22";
+
+/* Calibration/confirm button: PA7, active low with pull-up. */
+GPIO_BUTTON_A.$name = "GPIO_BUTTON_A";
+GPIO_BUTTON_A.associatedPins[0].$name = "CALIBRATE";
+GPIO_BUTTON_A.associatedPins[0].direction = "INPUT";
+GPIO_BUTTON_A.associatedPins[0].internalResistor = "PULL_UP";
+GPIO_BUTTON_A.associatedPins[0].pin.$assign = "PA7";
+
+/* Mode and start/stop buttons: PB1/PB21, active low with pull-up. */
+GPIO_BUTTON_B.$name = "GPIO_BUTTON_B";
+GPIO_BUTTON_B.associatedPins.create(2);
+GPIO_BUTTON_B.associatedPins[0].$name = "MODE";
+GPIO_BUTTON_B.associatedPins[0].direction = "INPUT";
+GPIO_BUTTON_B.associatedPins[0].internalResistor = "PULL_UP";
+GPIO_BUTTON_B.associatedPins[0].pin.$assign = "PB1";
+GPIO_BUTTON_B.associatedPins[1].$name = "START_STOP";
+GPIO_BUTTON_B.associatedPins[1].direction = "INPUT";
+GPIO_BUTTON_B.associatedPins[1].internalResistor = "PULL_UP";
+GPIO_BUTTON_B.associatedPins[1].pin.$assign = "PB21";
+
+/* H-bridge direction: AIN1=PA15, AIN2=PA16, BIN1=PA12. */
+GPIO_MOTOR_A.$name = "GPIO_MOTOR_A";
+GPIO_MOTOR_A.associatedPins.create(3);
+GPIO_MOTOR_A.associatedPins[0].$name = "LEFT_AIN1";
+GPIO_MOTOR_A.associatedPins[0].direction = "OUTPUT";
+GPIO_MOTOR_A.associatedPins[0].initialValue = "CLEARED";
+GPIO_MOTOR_A.associatedPins[0].pin.$assign = "PA15";
+GPIO_MOTOR_A.associatedPins[1].$name = "LEFT_AIN2";
+GPIO_MOTOR_A.associatedPins[1].direction = "OUTPUT";
+GPIO_MOTOR_A.associatedPins[1].initialValue = "CLEARED";
+GPIO_MOTOR_A.associatedPins[1].pin.$assign = "PA16";
+GPIO_MOTOR_A.associatedPins[2].$name = "RIGHT_BIN1";
+GPIO_MOTOR_A.associatedPins[2].direction = "OUTPUT";
+GPIO_MOTOR_A.associatedPins[2].initialValue = "CLEARED";
+GPIO_MOTOR_A.associatedPins[2].pin.$assign = "PA12";
+
+/* H-bridge direction: BIN2=PB23. STBY is tied to 3V3. */
+GPIO_MOTOR_B.$name = "GPIO_MOTOR_B";
+GPIO_MOTOR_B.associatedPins[0].$name = "RIGHT_BIN2";
+GPIO_MOTOR_B.associatedPins[0].direction = "OUTPUT";
+GPIO_MOTOR_B.associatedPins[0].initialValue = "CLEARED";
+GPIO_MOTOR_B.associatedPins[0].pin.$assign = "PB23";
+
+/* Buzzer: PB14. */
+GPIO_BUZZER.$name = "GPIO_BUZZER";
+GPIO_BUZZER.associatedPins[0].$name = "BUZZ";
+GPIO_BUZZER.associatedPins[0].direction = "OUTPUT";
+GPIO_BUZZER.associatedPins[0].initialValue = "CLEARED";
+GPIO_BUZZER.associatedPins[0].pin.$assign = "PB14";
+
+/* ICM45688 manual chip-select and latched DRDY. */
+GPIO_IMU_CS.$name = "GPIO_IMU_CS";
+GPIO_IMU_CS.associatedPins[0].$name = "ICM_CS";
+GPIO_IMU_CS.associatedPins[0].direction = "OUTPUT";
+GPIO_IMU_CS.associatedPins[0].initialValue = "SET";
+GPIO_IMU_CS.associatedPins[0].pin.$assign = "PB6";
+
+GPIO_IMU_INT.$name = "GPIO_IMU_INT";
+GPIO_IMU_INT.associatedPins[0].$name = "ICM_INT1";
+GPIO_IMU_INT.associatedPins[0].direction = "INPUT";
+GPIO_IMU_INT.associatedPins[0].pin.$assign = "PA13";
+
+/* Seven-channel digital line sensor. */
+GPIO_LINE_A.$name = "GPIO_LINE_A";
+GPIO_LINE_A.associatedPins.create(4);
+GPIO_LINE_A.associatedPins[0].$name = "LINE0";
+GPIO_LINE_A.associatedPins[0].direction = "INPUT";
+GPIO_LINE_A.associatedPins[0].internalResistor = "PULL_UP";
+GPIO_LINE_A.associatedPins[0].pin.$assign = "PA27";
+GPIO_LINE_A.associatedPins[1].$name = "LINE1";
+GPIO_LINE_A.associatedPins[1].direction = "INPUT";
+GPIO_LINE_A.associatedPins[1].internalResistor = "PULL_UP";
+GPIO_LINE_A.associatedPins[1].pin.$assign = "PA26";
+GPIO_LINE_A.associatedPins[2].$name = "LINE2";
+GPIO_LINE_A.associatedPins[2].direction = "INPUT";
+GPIO_LINE_A.associatedPins[2].internalResistor = "PULL_UP";
+GPIO_LINE_A.associatedPins[2].pin.$assign = "PA25";
+GPIO_LINE_A.associatedPins[3].$name = "LINE3";
+GPIO_LINE_A.associatedPins[3].direction = "INPUT";
+GPIO_LINE_A.associatedPins[3].internalResistor = "PULL_UP";
+GPIO_LINE_A.associatedPins[3].pin.$assign = "PA24";
+
+GPIO_LINE_B.$name = "GPIO_LINE_B";
+GPIO_LINE_B.associatedPins.create(3);
+GPIO_LINE_B.associatedPins[0].$name = "LINE4";
+GPIO_LINE_B.associatedPins[0].direction = "INPUT";
+GPIO_LINE_B.associatedPins[0].internalResistor = "PULL_UP";
+GPIO_LINE_B.associatedPins[0].pin.$assign = "PB25";
+GPIO_LINE_B.associatedPins[1].$name = "LINE5";
+GPIO_LINE_B.associatedPins[1].direction = "INPUT";
+GPIO_LINE_B.associatedPins[1].internalResistor = "PULL_UP";
+GPIO_LINE_B.associatedPins[1].pin.$assign = "PB24";
+GPIO_LINE_B.associatedPins[2].$name = "LINE6";
+GPIO_LINE_B.associatedPins[2].direction = "INPUT";
+GPIO_LINE_B.associatedPins[2].internalResistor = "PULL_UP";
+GPIO_LINE_B.associatedPins[2].pin.$assign = "PB20";
+
+/* UART0 debug: PA10 TX, PA11 RX, 115200 8N1. */
+UART_DEBUG.$name = "UART_DEBUG";
+UART_DEBUG.targetBaudRate = 115200;
+UART_DEBUG.enableFIFO = true;
+UART_DEBUG.rxFifoThreshold = "DL_UART_RX_FIFO_LEVEL_ONE_ENTRY";
+UART_DEBUG.txFifoThreshold = "DL_UART_TX_FIFO_LEVEL_ONE_ENTRY";
+UART_DEBUG.enabledInterrupts = ["RX"];
+UART_DEBUG.peripheral.$assign = "UART0";
+UART_DEBUG.peripheral.txPin.$assign = "PA10";
+UART_DEBUG.peripheral.rxPin.$assign = "PA11";
+
+/* Motor PWM: PA8 TIMA0_C0, PA9 TIMA0_C1. */
+PWM_MOTOR.$name = "PWM_MOTOR";
+PWM_MOTOR.peripheral.$assign = "TIMA0";
+PWM_MOTOR.peripheral.ccp0Pin.$assign = "PA8";
+PWM_MOTOR.peripheral.ccp1Pin.$assign = "PA9";
+PWM_MOTOR.timerCount = 1000;
+PWM_MOTOR.ccIndex = [0, 1];
+PWM_MOTOR.timerStartTimer = true;
+PWM_MOTOR.PWM_CHANNEL_0.$name = "ti_driverlib_pwm_PWMTimerCC0";
+PWM_MOTOR.PWM_CHANNEL_0.dutyCycle = 0;
+PWM_MOTOR.PWM_CHANNEL_1.$name = "ti_driverlib_pwm_PWMTimerCC1";
+PWM_MOTOR.PWM_CHANNEL_1.dutyCycle = 0;
+
+/* OLED: I2C0 PA0/PA1, 400 kHz. */
+I2C_OLED.$name = "I2C_OLED";
+I2C_OLED.basicEnableController = true;
+I2C_OLED.basicControllerBusSpeed = 400000;
+I2C_OLED.advAnalogGlitchFilter = "DISABLED";
+I2C_OLED.peripheral.$assign = "I2C0";
+I2C_OLED.peripheral.sdaPin.$assign = "PA0";
+I2C_OLED.peripheral.sclPin.$assign = "PA1";
+
+/* ICM45688: SPI1 mode 3, 2 MHz, PB7/PB8/PB9. */
+SPI_ICM45688.$name = "SPI_ICM45688";
+SPI_ICM45688.targetBitRate = 2000000;
+SPI_ICM45688.polarity = "1";
+SPI_ICM45688.phase = "1";
+SPI_ICM45688.dataSize = 8;
+SPI_ICM45688.chipSelect = [];
+SPI_ICM45688.frameFormat = "MOTO3";
+SPI_ICM45688.peripheral.$assign = "SPI1";
+SPI_ICM45688.peripheral.sclkPin.$assign = "PB9";
+SPI_ICM45688.peripheral.mosiPin.$assign = "PB8";
+SPI_ICM45688.peripheral.misoPin.$assign = "PB7";
+SPI_ICM45688.sclkPinConfig.$name = "GPIO_SPI_ICM45688_SCLK";
+SPI_ICM45688.sclkPinConfig.direction = scripting.forceWrite("OUTPUT");
+SPI_ICM45688.mosiPinConfig.$name = "GPIO_SPI_ICM45688_PICO";
+SPI_ICM45688.mosiPinConfig.direction = scripting.forceWrite("OUTPUT");
+SPI_ICM45688.misoPinConfig.$name = "GPIO_SPI_ICM45688_POCI";
+
+/* Left encoder uses the device's native QEI block. */
+QEI_LEFT.$name = "QEI_LEFT";
+QEI_LEFT.peripheral.$assign = "TIMG8";
+QEI_LEFT.peripheral.ccp0Pin.$assign = "PB15";
+QEI_LEFT.peripheral.ccp1Pin.$assign = "PB16";
+
+/*
+ * TIMG6 has no native QEI mode on this device. Capture both edges on both
+ * channels; the encoder ISR decodes the quadrature state at every edge.
+ */
+CAPTURE_RIGHT.$name = "CAPTURE_RIGHT";
+CAPTURE_RIGHT.captureInputMode = "multi";
+CAPTURE_RIGHT.ccIndexMulti = [0, 1];
+CAPTURE_RIGHT.multi_countMode = "DL_TIMER_COUNT_MODE_UP";
+CAPTURE_RIGHT.multi_countRep = "DL_TIMER_REPEAT_MODE_ENABLED";
+CAPTURE_RIGHT.multi_cvae = "DL_TIMER_COUNT_AFTER_EN_ZERO";
+CAPTURE_RIGHT.multi_ch_zero = 0;
+CAPTURE_RIGHT.multi_ch0_captEdgeDetection = "DL_TIMER_CC_CCOND_TRIG_EDGE";
+CAPTURE_RIGHT.multi_ch1_captEdgeDetection = "DL_TIMER_CC_CCOND_TRIG_EDGE";
+CAPTURE_RIGHT.interrupts = ["CC0_DN", "CC0_UP", "CC1_DN", "CC1_UP"];
+CAPTURE_RIGHT.timerPeriod = "1 ms";
+CAPTURE_RIGHT.timerStartTimer = true;
+CAPTURE_RIGHT.peripheral.$assign = "TIMG6";
+CAPTURE_RIGHT.peripheral.ccp0Pin.$assign = "PB26";
+CAPTURE_RIGHT.peripheral.ccp1Pin.$assign = "PB27";
+
+/* 500 ms watchdog; health task is the sole feeder. */
+WWDT0_INST.$name = "WWDT0";
+WWDT0_INST.sleepMode = true;
+WWDT0_INST.window0ClosedPeriod = "0";
