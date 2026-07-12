@@ -1,5 +1,7 @@
 # NUEDC Control Car FreeRTOS Template
 
+[中文说明](README.zh-CN.md)
+
 Clean MSPM0G3507 modular electric-contest car firmware template. It contains
 the verified board bindings and vehicle calibration, the calibrated ICM45688
 implementation from `xy1092/mspm0-bmi088-icm45688`, and only the production
@@ -105,7 +107,7 @@ they have not yet been calibrated on the final course.
 ## Build
 
 ```bash
-cd /home/xy/ti-workspace/projects/nuedc_control_car_freertos_template
+cd nuedc_control_car_freertos_template
 ./scripts/build.sh
 ```
 
