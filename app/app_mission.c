@@ -18,16 +18,16 @@ void App_Mission_Tick(uint32_t now_ms)
     (void)now_ms;
 
     if (ctx->state == APP_STATE_RUN) {
-        float base = APP_BASE_SPEED_PULSE;
-        float left_base = base * APP_LEFT_PULSES_PER_CM /
-                          APP_RIGHT_PULSES_PER_CM;
+        float base_cm_s = APP_BASE_SPEED_CM_S;
+        float left_base = base_cm_s * APP_LEFT_PULSES_PER_CM / 100.0f;
+        float right_base = base_cm_s * APP_RIGHT_PULSES_PER_CM / 100.0f;
         float turn = Control_LineTracker_Update();
 
         ctx->line_turn = clampf_local(turn, -APP_LINE_TURN_LIMIT,
                                       APP_LINE_TURN_LIMIT);
         Control_Chassis_SetTargetSpeeds(&ctx->chassis,
                                         left_base - ctx->line_turn,
-                                        base + ctx->line_turn);
+                                        right_base + ctx->line_turn);
     } else {
         ctx->line_turn = 0.0f;
         Control_Chassis_SetTargetSpeeds(&ctx->chassis, 0.0f, 0.0f);

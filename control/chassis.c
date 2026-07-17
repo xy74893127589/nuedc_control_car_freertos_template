@@ -17,8 +17,20 @@
     VEHICLE_ENCODER_RIGHT_PULSES_PER_CM
 #define CONTROL_CHASSIS_DEFAULT_WHEEL_BASE_CM      13.5f
 #define CONTROL_CHASSIS_DEFAULT_OPEN_LOOP_CM_PWM   0.00022f
-#define CONTROL_CHASSIS_DEFAULT_SPEED_OUT_LIMIT    1000.0f
+#define CONTROL_CHASSIS_DEFAULT_SPEED_OUT_LIMIT    VEHICLE_SPEED_PWM_LIMIT
+#define CONTROL_CHASSIS_DEFAULT_CORRECTION_LIMIT   \
+    VEHICLE_SPEED_PID_CORRECTION_LIMIT
 #define CONTROL_CHASSIS_DEFAULT_FORWARD_MIN_PULSE  0.03f
+#define CONTROL_CHASSIS_DEFAULT_LEFT_FF_SLOPE      \
+    VEHICLE_SPEED_LEFT_FF_SLOPE
+#define CONTROL_CHASSIS_DEFAULT_LEFT_FF_OFFSET     \
+    VEHICLE_SPEED_LEFT_FF_OFFSET
+#define CONTROL_CHASSIS_DEFAULT_RIGHT_FF_SLOPE     \
+    VEHICLE_SPEED_RIGHT_FF_SLOPE
+#define CONTROL_CHASSIS_DEFAULT_RIGHT_FF_OFFSET    \
+    VEHICLE_SPEED_RIGHT_FF_OFFSET
+#define CONTROL_CHASSIS_DEFAULT_INTEGRAL_DELAY_MS  \
+    VEHICLE_SPEED_INTEGRAL_DELAY_MS
 
 static float wrap_pi_local(float x)
 {
@@ -27,12 +39,40 @@ static float wrap_pi_local(float x)
     return x;
 }
 
-#ifdef NUEDC_NO_ENCODER
 static float clampf_local(float x, float lo, float hi)
 {
     if (x < lo) return lo;
     if (x > hi) return hi;
     return x;
+}
+
+#ifndef NUEDC_NO_ENCODER
+static float feedforward_pwm(float target, float slope, float offset,
+                             float minimum_target)
+{
+    if (target <= minimum_target || slope <= 0.0f) {
+        return 0.0f;
+    }
+    return (target + offset) / slope;
+}
+
+static float update_speed_pid(PID_t *pid, float target, float measured,
+                              uint8_t allow_integral)
+{
+    float ki;
+    float output;
+
+    if (allow_integral) {
+        return PID_Update(pid, target, measured);
+    }
+
+    ki = pid->ki;
+    pid->ki = 0.0f;
+    output = PID_Update(pid, target, measured);
+    pid->ki = ki;
+    pid->integral = 0.0f;
+    pid->last_i = 0.0f;
+    return output;
 }
 #endif
 
@@ -55,8 +95,32 @@ static void normalize_config(ControlChassisConfig_t *config)
     if (config->speed_out_limit <= 0.0f) {
         config->speed_out_limit = CONTROL_CHASSIS_DEFAULT_SPEED_OUT_LIMIT;
     }
+    if (config->speed_correction_limit <= 0.0f) {
+        config->speed_correction_limit =
+            CONTROL_CHASSIS_DEFAULT_CORRECTION_LIMIT;
+    }
     if (config->forward_min_pulse < 0.0f) {
         config->forward_min_pulse = CONTROL_CHASSIS_DEFAULT_FORWARD_MIN_PULSE;
+    }
+    if (config->feedforward_left_slope <= 0.0f) {
+        config->feedforward_left_slope =
+            CONTROL_CHASSIS_DEFAULT_LEFT_FF_SLOPE;
+    }
+    if (config->feedforward_left_offset <= 0.0f) {
+        config->feedforward_left_offset =
+            CONTROL_CHASSIS_DEFAULT_LEFT_FF_OFFSET;
+    }
+    if (config->feedforward_right_slope <= 0.0f) {
+        config->feedforward_right_slope =
+            CONTROL_CHASSIS_DEFAULT_RIGHT_FF_SLOPE;
+    }
+    if (config->feedforward_right_offset <= 0.0f) {
+        config->feedforward_right_offset =
+            CONTROL_CHASSIS_DEFAULT_RIGHT_FF_OFFSET;
+    }
+    if (config->integral_delay_ms == 0u) {
+        config->integral_delay_ms =
+            CONTROL_CHASSIS_DEFAULT_INTEGRAL_DELAY_MS;
     }
 }
 
@@ -92,9 +156,11 @@ void Control_Chassis_Init(ControlChassis_t *chassis,
     chassis->config = cfg;
 
     PID_Init(&chassis->pid_left, speed_kp, speed_ki, speed_kd,
-             -chassis->config.speed_out_limit, chassis->config.speed_out_limit);
+             -chassis->config.speed_correction_limit,
+             chassis->config.speed_correction_limit);
     PID_Init(&chassis->pid_right, speed_kp, speed_ki, speed_kd,
-             -chassis->config.speed_out_limit, chassis->config.speed_out_limit);
+             -chassis->config.speed_correction_limit,
+             chassis->config.speed_correction_limit);
 #ifndef NUEDC_NO_ENCODER
     BSP_Encoder_Init();
 #endif
@@ -180,8 +246,8 @@ void Control_Chassis_Tick(ControlChassis_t *chassis, uint8_t run, uint32_t now_m
     int32_t delta_right = BSP_Encoder_GetDelta(1);
     float meas_left = fabsf((float)delta_left);
     float meas_right = fabsf((float)delta_right);
-    int16_t pwm_left;
-    int16_t pwm_right;
+    int16_t pwm_left = 0;
+    int16_t pwm_right = 0;
 
     integrate_odometry(chassis,
                        meas_left / chassis->config.left_pulses_per_cm,
@@ -190,25 +256,59 @@ void Control_Chassis_Tick(ControlChassis_t *chassis, uint8_t run, uint32_t now_m
     chassis->measured_speed_left = meas_left;
     chassis->measured_speed_right = meas_right;
 
-    pwm_left = (int16_t)PID_Update(&chassis->pid_left,
-                                   chassis->target_speed_left, meas_left);
-    pwm_right = (int16_t)PID_Update(&chassis->pid_right,
-                                    chassis->target_speed_right, meas_right);
-
     if (run) {
-        if (chassis->target_speed_left > chassis->config.forward_min_pulse && pwm_left > 0) {
-            int32_t ff = (int32_t)pwm_left + (int32_t)chassis->dead_zone_left;
-            if (ff > (int32_t)limit) ff = (int32_t)limit;
-            pwm_left = (int16_t)ff;
+        float ff_left;
+        float ff_right;
+        float correction_left = 0.0f;
+        float correction_right = 0.0f;
+        uint8_t allow_integral;
+
+        if (!chassis->speed_control_active) {
+            chassis->speed_control_active = 1u;
+            chassis->speed_control_started_ms = now_ms;
+            PID_Reset(&chassis->pid_left);
+            PID_Reset(&chassis->pid_right);
         }
-        if (chassis->target_speed_right > chassis->config.forward_min_pulse && pwm_right > 0) {
-            int32_t ff = (int32_t)pwm_right + (int32_t)chassis->dead_zone_right;
-            if (ff > (int32_t)limit) ff = (int32_t)limit;
-            pwm_right = (int16_t)ff;
+
+        allow_integral =
+            ((uint32_t)(now_ms - chassis->speed_control_started_ms) >=
+             chassis->config.integral_delay_ms) ? 1u : 0u;
+        ff_left = feedforward_pwm(chassis->target_speed_left,
+                                  chassis->config.feedforward_left_slope,
+                                  chassis->config.feedforward_left_offset,
+                                  chassis->config.forward_min_pulse);
+        ff_right = feedforward_pwm(chassis->target_speed_right,
+                                   chassis->config.feedforward_right_slope,
+                                   chassis->config.feedforward_right_offset,
+                                   chassis->config.forward_min_pulse);
+
+        if (ff_left > 0.0f) {
+            correction_left = update_speed_pid(&chassis->pid_left,
+                                               chassis->target_speed_left,
+                                               meas_left, allow_integral);
+        } else {
+            PID_Reset(&chassis->pid_left);
         }
+        if (ff_right > 0.0f) {
+            correction_right = update_speed_pid(&chassis->pid_right,
+                                                chassis->target_speed_right,
+                                                meas_right, allow_integral);
+        } else {
+            PID_Reset(&chassis->pid_right);
+        }
+
+        pwm_left = (int16_t)(clampf_local(
+            ff_left + correction_left + chassis->dead_zone_left,
+            0.0f, limit) + 0.5f);
+        pwm_right = (int16_t)(clampf_local(
+            ff_right + correction_right + chassis->dead_zone_right,
+            0.0f, limit) + 0.5f);
         BSP_Motor_SetDuty(0, pwm_left);
         BSP_Motor_SetDuty(1, pwm_right);
     } else if (chassis->debug_pwm_active) {
+        chassis->speed_control_active = 0u;
+        PID_Reset(&chassis->pid_left);
+        PID_Reset(&chassis->pid_right);
         if (now_ms >= chassis->debug_pwm_deadline_ms) {
             Control_Chassis_ClearDebugDuty(chassis);
             BSP_Motor_SetDuty(0, 0);
@@ -218,6 +318,9 @@ void Control_Chassis_Tick(ControlChassis_t *chassis, uint8_t run, uint32_t now_m
             BSP_Motor_SetDuty(1, chassis->debug_pwm_right);
         }
     } else {
+        chassis->speed_control_active = 0u;
+        PID_Reset(&chassis->pid_left);
+        PID_Reset(&chassis->pid_right);
         BSP_Motor_SetDuty(0, 0);
         BSP_Motor_SetDuty(1, 0);
     }

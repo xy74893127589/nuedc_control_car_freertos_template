@@ -15,6 +15,29 @@
 #define VEHICLE_STRAIGHT_MIN_PWM                 220
 #define VEHICLE_STRAIGHT_RAMP_MS                 500u
 
+/*
+ * Wheel-speed baseline measured on the ground at regulated 12 V on
+ * 2026-07-13. Revalidate the feedforward model with the final load and course
+ * surface; encoder feedback is responsible for the remaining load error.
+ */
+#define VEHICLE_SPEED_CONTROL_PERIOD_MS           10u
+#define VEHICLE_SPEED_PID_KP                       8.0f
+#define VEHICLE_SPEED_PID_KI                       0.1f
+#define VEHICLE_SPEED_PID_KD                       0.0f
+#define VEHICLE_SPEED_PID_CORRECTION_LIMIT       120.0f
+#define VEHICLE_SPEED_INTEGRAL_DELAY_MS           200u
+#define VEHICLE_SPEED_PWM_LIMIT                   500.0f
+#define VEHICLE_SPEED_LEFT_FF_SLOPE                0.069114f
+#define VEHICLE_SPEED_LEFT_FF_OFFSET               5.751407f
+#define VEHICLE_SPEED_RIGHT_FF_SLOPE               0.068201f
+#define VEHICLE_SPEED_RIGHT_FF_OFFSET              5.486958f
+
+/* Provisional competition speed bands; the high band still needs load tests. */
+#define VEHICLE_SPEED_LOW_CM_S                     20.0f
+#define VEHICLE_SPEED_MEDIUM_CM_S                  30.0f
+#define VEHICLE_SPEED_HIGH_CM_S                    34.0f
+#define VEHICLE_SPEED_MAX_TARGET_PULSES            25.0f
+
 /* Stationary 90-degree yaw turn calibration. */
 #define VEHICLE_TURN_ANGLE_DEG                    90.0f
 #define VEHICLE_TURN_PRECISION_DEG                0.2f

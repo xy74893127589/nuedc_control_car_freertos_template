@@ -16,7 +16,13 @@ typedef struct {
     float wheel_base_cm;
     float open_loop_cm_per_pwm_ms;
     float speed_out_limit;
+    float speed_correction_limit;
     float forward_min_pulse;
+    float feedforward_left_slope;
+    float feedforward_left_offset;
+    float feedforward_right_slope;
+    float feedforward_right_offset;
+    uint32_t integral_delay_ms;
 } ControlChassisConfig_t;
 
 typedef struct {
@@ -32,6 +38,9 @@ typedef struct {
     float segment_dist_cm;
     float dead_zone_left;
     float dead_zone_right;
+
+    uint8_t speed_control_active;
+    uint32_t speed_control_started_ms;
 
     uint8_t debug_pwm_active;
     int16_t debug_pwm_left;

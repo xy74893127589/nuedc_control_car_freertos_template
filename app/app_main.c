@@ -20,7 +20,13 @@ static const ControlChassisConfig_t k_chassis_config = {
     .wheel_base_cm = APP_WHEEL_BASE_CM,
     .open_loop_cm_per_pwm_ms = APP_OPEN_LOOP_CM_PER_PWM_MS,
     .speed_out_limit = APP_SPEED_OUT_LIMIT,
+    .speed_correction_limit = APP_SPEED_CORRECTION_LIMIT,
     .forward_min_pulse = APP_FORWARD_MIN_PULSE,
+    .feedforward_left_slope = APP_SPEED_LEFT_FF_SLOPE,
+    .feedforward_left_offset = APP_SPEED_LEFT_FF_OFFSET,
+    .feedforward_right_slope = APP_SPEED_RIGHT_FF_SLOPE,
+    .feedforward_right_offset = APP_SPEED_RIGHT_FF_OFFSET,
+    .integral_delay_ms = APP_SPEED_INTEGRAL_DELAY_MS,
 };
 
 void App_Init(void)
@@ -29,6 +35,7 @@ void App_Init(void)
     const ControlLineTrackInfo_t *line_info;
 
     BSP_Motor_Init();
+    Telemetry_Init();
     BSP_Uart_Init();
     BSP_Adc_Init();
     IMU_Service_Init();
@@ -42,7 +49,6 @@ void App_Init(void)
              -APP_LINE_TURN_LIMIT, APP_LINE_TURN_LIMIT);
     Control_LineTracker_Init(&ctx->line_pid);
 
-    Telemetry_Init();
     Telemetry_BindChassis(&ctx->state_id,
                           &ctx->chassis.pose.x, &ctx->chassis.pose.y,
                           &ctx->chassis.pose.theta,
